@@ -51,7 +51,7 @@ jobs:
             tags="$tags,${{ vars.ACR_NAME }}.azurecr.io/${{ vars.ACR_REPOSITORY || github.event.repository.name }}:${{ steps.meta.outputs.tag }}"
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: .
           push: true
