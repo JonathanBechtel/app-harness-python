@@ -1,0 +1,62 @@
+name: Deploy (Azure Container Apps)
+
+# Deploys an already-built image (see build-image.yml) to one Azure Container
+# Apps environment. Manual by default; stage may be wired to `workflow_run` on
+# Build image once the team is comfortable. Auth is OIDC (no stored secrets).
+# Required repository/environment variables: AZURE_CLIENT_ID, AZURE_TENANT_ID,
+# AZURE_SUBSCRIPTION_ID, ACR_NAME, ACA_RESOURCE_GROUP, ACA_APP_NAME.
+# See deploy/azure-container-apps/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: GitHub environment holding the target's variables
+        type: choice
+        options: [stage, prod]
+        default: stage
+      image_tag:
+        description: Image tag to deploy (default sha-<12> of this commit)
+        required: false
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: deploy-aca-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Resolve image
+        id: image
+        run: |
+          tag="${{ inputs.image_tag }}"; [ -n "$tag" ] || tag="sha-${GITHUB_SHA::12}"
+          echo "ref=${{ vars.ACR_NAME }}.azurecr.io/${{ vars.ACR_REPOSITORY || github.event.repository.name }}:$tag" >> "$GITHUB_OUTPUT"
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Update container app revision
+        run: |
+          az containerapp update \
+            --name "${{ vars.ACA_APP_NAME }}" \
+            --resource-group "${{ vars.ACA_RESOURCE_GROUP }}" \
+            --image "${{ steps.image.outputs.ref }}" \
+            --set-env-vars APP_ENV=${{ inputs.environment }} \
+            --revision-suffix "${GITHUB_SHA::8}"
+      - name: Verify the deployed release sha
+        run: |
+          url="$(az containerapp show -n "${{ vars.ACA_APP_NAME }}" -g "${{ vars.ACA_RESOURCE_GROUP }}" --query properties.configuration.ingress.fqdn -o tsv)"
+          for i in $(seq 1 20); do
+            sha="$(curl -fsS "https://$url/health" | python -c 'import json,sys; print(json.load(sys.stdin).get("release_sha") or "")' || true)"
+            [ "$sha" = "${{ github.sha }}" ] && { echo "live: $sha"; exit 0; }
+            sleep 10
+          done
+          echo "::error::deployment did not report release_sha=${{ github.sha }} within 200s (got '$sha')"; exit 1

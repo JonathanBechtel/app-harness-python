@@ -1,0 +1,18 @@
+/* Design tokens + shared primitives. Page-specific styles go in their own
+   kebab-case file loaded via {% block extra_css %}. Components reused across
+   pages live here (BEM: .card, .card__title, .card--highlight). */
+:root {
+  --color-bg: #f7f7f5;
+  --color-fg: #1c1c1a;
+  --color-muted: #6b6b66;
+  --color-accent: #2f6df6;
+  --space: 1rem;
+  --radius: 8px;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+body { margin: 0; background: var(--color-bg); color: var(--color-fg); font-family: var(--font); }
+.page { max-width: 48rem; margin: 0 auto; padding: calc(var(--space) * 3) var(--space); }
+.card { background: #fff; border: 1px solid #e3e3df; border-radius: var(--radius); padding: calc(var(--space) * 1.5); }
+.card__title { margin: 0 0 var(--space); font-size: 1.5rem; }
+.card__body { margin: 0 0 calc(var(--space) / 2); color: var(--color-muted); }
+code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }

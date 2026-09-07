@@ -1,0 +1,36 @@
+# What the image needs is narrow: the `app` package, `alembic/` + alembic.ini for
+# the release migration, and packaging metadata. Everything else is developer- or
+# CI-facing.
+#
+# Excluding a directory here makes it ABSENT AT RUNTIME. A module under app/ that
+# reads a file from one of these paths breaks in the container while CI, the
+# build, and the deploy all stay green. scripts/check_runtime_entrypoints.py reads
+# this file and fails (E3) if anything under app/ references an excluded path, so
+# the two cannot drift. Add a directory here only after that guard passes.
+
+.git/
+.github/
+.claude/
+.codex/
+.agents/
+.vscode/
+.venv/
+.env*
+!.env.example
+.envrc
+__pycache__/
+*.egg-info/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.coverage*
+coverage.xml
+htmlcov/
+
+# Developer and CI trees — never executed inside the container.
+scripts/
+tests/
+docs/
+deploy/
+evals/

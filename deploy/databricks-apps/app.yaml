@@ -1,0 +1,16 @@
+# Databricks Apps run configuration. Copied to the bundle root by the deploy
+# workflow. DATABRICKS_APP_PORT is substituted by the platform at runtime.
+command:
+  - sh
+  - -c
+  - alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $DATABRICKS_APP_PORT --proxy-headers --forwarded-allow-ips='*'
+env:
+  - name: APP_ENV
+    value: stage
+  - name: LOG_JSON
+    value: "1"
+  # Secrets come from Databricks secret scopes / app resources, never literals:
+  # - name: DATABASE_URL
+  #   valueFrom: database-url
+  # - name: SECRET_KEY
+  #   valueFrom: secret-key

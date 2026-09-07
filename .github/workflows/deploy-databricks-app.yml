@@ -1,0 +1,49 @@
+name: Deploy (Databricks Apps)
+
+# Databricks Apps deploys from SOURCE, not from an image: it installs
+# requirements.txt and runs the command in deploy/databricks-apps/app.yaml.
+# This workflow ships the same commit the image was built from, with a pinned
+# requirements.txt exported from pyproject at deploy time, so both targets run
+# identical code. Required variables: DATABRICKS_HOST, DATABRICKS_APP_NAME,
+# DATABRICKS_WORKSPACE_PATH; secret: DATABRICKS_TOKEN (or use OIDC federation).
+# See deploy/databricks-apps/README.md.
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        options: [stage, prod]
+        default: stage
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-databricks-${{ inputs.environment }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    env:
+      DATABRICKS_HOST: ${{ vars.DATABRICKS_HOST }}
+      DATABRICKS_TOKEN: ${{ secrets.DATABRICKS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Export pinned requirements from pyproject
+        run: pip install uv && uv pip compile pyproject.toml -o requirements.txt --quiet
+      - name: Assemble source bundle
+        run: |
+          mkdir -p bundle
+          cp -r app alembic alembic.ini pyproject.toml README.md requirements.txt bundle/
+          cp deploy/databricks-apps/app.yaml bundle/app.yaml
+          echo "RELEASE_SHA=${{ github.sha }}" > bundle/.release
+      - uses: databricks/setup-cli@main
+      - name: Sync and deploy
+        run: |
+          databricks sync ./bundle "${{ vars.DATABRICKS_WORKSPACE_PATH }}" --full
+          databricks apps deploy "${{ vars.DATABRICKS_APP_NAME }}" --source-code-path "${{ vars.DATABRICKS_WORKSPACE_PATH }}"

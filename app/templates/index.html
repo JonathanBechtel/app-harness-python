@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}app-harness · {{ env }}{% endblock %}
+{% block content %}
+<section class="card" data-testid="landing">
+  <h1 class="card__title">It runs.</h1>
+  <p class="card__body">Environment <code>{{ env }}</code>{% if release_sha %}, release <code>{{ release_sha[:12] }}</code>{% endif %}.</p>
+  <p class="card__body">Replace this page, or ignore <code>app/web/</code> entirely for an API-only service. See <code>app/web/CLAUDE.md</code>.</p>
+</section>
+{% endblock %}

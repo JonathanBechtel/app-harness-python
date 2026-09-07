@@ -1,0 +1,133 @@
+# Local guardrails. Every hook here is mirrored EXACTLY in the Makefile and in
+# .github/workflows/ci.yml, so a violation cannot pass locally and fail in CI,
+# or the reverse. Pre-commit is bypassable (--no-verify, a clone without hooks);
+# CI is the enforcing copy.
+#
+# Two families of local hook:
+#   * path-taking checkers get the changed files (`files:` scopes them);
+#   * whole-tree / diff-scoped checkers take `pass_filenames: false` because
+#     the property they check is not a property of one file.
+# Both refuse to pass on an empty scan (scripts/_check_runner.py).
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.16.6
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v2.3.1
+    hooks:
+      - id: mypy
+        files: ^app/
+        args: ["--ignore-missing-imports", "--python-version=3.12"]
+        additional_dependencies: ["pydantic>=2.7", "pydantic-settings>=2.3", "sqlmodel>=0.0.22", "types-PyYAML"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+      - id: check-added-large-files
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: trailing-whitespace
+        exclude: &hygiene_exclude |
+          (?x)^(
+            docs/|
+            tests/fixtures/|
+            alembic/versions/|
+            .*\.svg$
+          )
+      - id: end-of-file-fixer
+        exclude: *hygiene_exclude
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: v0.11.0.1
+    hooks:
+      - id: shellcheck
+        files: \.sh$
+  - repo: local
+    hooks:
+      - id: lint-imports
+        name: Structural import contracts (import-linter)
+        entry: lint-imports
+        language: system
+        pass_filenames: false
+        files: ^(app/.*\.py|pyproject\.toml)$
+      - id: route-conventions
+        name: REST route conventions (response shape, status_code, DI, TemplateResponse)
+        entry: python scripts/check_route_conventions.py
+        language: system
+        files: ^app/(api|web)/.*\.py$
+      - id: request-transaction-policy
+        name: No commit()/rollback() in request-bounded code
+        entry: python scripts/check_request_transaction_policy.py
+        language: system
+        files: ^app/(api|web|services)/.*\.py$
+      - id: unscoped-delete
+        name: Ban unscoped delete(Model) (retain history by default)
+        entry: python scripts/check_unscoped_delete.py
+        language: system
+        files: ^(app|scripts)/.*\.py$
+      - id: empty-method-stubs
+        name: No empty method bodies in concrete classes
+        entry: python scripts/check_empty_method_stubs.py
+        language: system
+        files: ^(app|tests)/.*\.py$
+      - id: migration-enum-case
+        name: UPPER_CASE enum members in migrations
+        entry: python scripts/check_migration_enum_case.py
+        language: system
+        files: ^alembic/versions/.*\.py$
+      - id: module-conventions
+        name: Directory-scoped module conventions (.module-conventions.yml)
+        entry: python scripts/check_module_conventions.py
+        language: system
+        files: ^(app/.*\.py|scripts/check_module_conventions\.py|\.module-conventions\.yml)$
+      - id: complexity-ratchet
+        name: Block complexity growth beyond complexity-baseline.json
+        entry: python scripts/check_complexity_ratchet.py
+        language: system
+        pass_filenames: false
+        files: ^(app|scripts)/.*\.py$
+      - id: runtime-entrypoints
+        name: app/cli vs scripts/ boundary and .dockerignore read guard
+        entry: python scripts/check_runtime_entrypoints.py
+        language: system
+        pass_filenames: false
+        files: ^(app/.*\.py|deploy/.*|\.github/workflows/.*\.ya?ml|\.dockerignore|Dockerfile)$
+      - id: docs-freshness
+        name: Agent docs describe the real app (no stale placeholders, every package documented)
+        entry: python scripts/check_docs_freshness.py
+        language: system
+        pass_filenames: false
+        files: ^(CLAUDE\.md|app/.*|docs/.*\.md)$
+      - id: migration-safety
+        name: Concurrent, autocommit-wrapped index builds in new migrations
+        entry: python scripts/check_migration_safety.py
+        language: system
+        pass_filenames: false
+        files: ^alembic/(versions/.*|env)\.py$
+      - id: file-size-ratchet
+        name: Warn when a change grows an oversized app/ module (CI enforces)
+        entry: python scripts/check_file_size_ratchet.py
+        language: system
+        pass_filenames: false
+        files: ^app/.*\.py$
+      - id: duplicate-code
+        name: Duplicate-code gate (3% of changed lines)
+        entry: python scripts/check_duplicate_code.py
+        language: system
+        pass_filenames: false
+        files: ^(app|scripts)/.*\.py$
+      - id: test-float-comparisons
+        name: pytest.approx for float equality in changed test asserts
+        entry: python scripts/check_test_float_comparisons.py
+        language: system
+        pass_filenames: false
+        files: ^tests/.*\.py$
+      - id: test-docstrings
+        name: Docstrings on changed test functions
+        entry: python scripts/check_test_docstrings.py
+        language: system
+        pass_filenames: false
+        files: ^tests/.*\.py$

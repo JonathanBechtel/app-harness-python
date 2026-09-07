@@ -1,0 +1,210 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+# Rename on day one: see docs/guides/new-project-checklist.md.
+name = "app-harness"
+version = "0.1.0"
+description = "Application harness: FastAPI service skeleton with the engineering guardrails baked in."
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.30",
+    "sqlmodel>=0.0.22",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.13",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "python-dotenv>=1.0",
+    "httpx>=0.27",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "pytest-xdist>=3.6",
+    "diff-cover>=9.0",
+    "ruff==0.16.6",  # lockstep with .pre-commit-config.yaml
+    "mypy==2.3.1",  # lockstep with .pre-commit-config.yaml
+    "import-linter>=2.0",
+    "pylint>=3.2",
+    "pre-commit>=3.7",
+    "pyyaml>=6.0",
+    "types-PyYAML",
+    "playwright>=1.45",
+    "greenlet>=3.0",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+# Runtime assets the shipped package READS (not just imports). Declared so
+# `pip install .` produces a complete wheel on its own terms rather than by
+# accident of the Docker image's `COPY . .`.
+[tool.setuptools.package-data]
+"app" = ["data/*.json", "templates/**/*.html", "static/**/*"]
+
+# ---------------------------------------------------------------------------
+# Ruff — lint + format. One tool, one config, mirrored by pre-commit and CI.
+# ---------------------------------------------------------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+# Agent worktrees are full repo copies CI never sees; without excluding them
+# `make lint` reports every finding twice.
+exclude = ["alembic/versions", ".codex", ".claude/worktrees", ".venv"]
+
+[tool.ruff.lint]
+select = [
+    "F",      # pyflakes
+    "E", "W", # pycodestyle
+    "I",      # isort
+    "D",      # pydocstyle (google convention; formatting of existing docstrings)
+    "C901",   # mccabe complexity
+    "PLR0913",# too many arguments
+    "PLR0915",# too many statements
+    "RUF006", # asyncio dangling task
+    "RUF012", # mutable class default
+    "RUF013", # implicit Optional
+    "B",      # bugbear
+    "UP",     # pyupgrade
+]
+ignore = [
+    "E501",  # line length: the formatter owns it
+    # Missing-docstring rules are off: docstring *format* is enforced, presence is
+    # not (tests are the exception, via scripts/check_test_docstrings.py).
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-statements = 50
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.isort]
+known-first-party = ["app", "evals"]
+
+# Complexity baseline. This list is a RATCHET: entries may be removed as code is
+# simplified, never added. scripts/check_complexity_ratchet.py runs ruff with
+# --isolated so an entry here cannot hide growth *inside* a baselined file.
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = ["D", "PLR0913"]
+"scripts/**/*.py" = ["D1"]
+"evals/**/*.py" = ["D1"]
+"alembic/env.py" = ["E402"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+# ---------------------------------------------------------------------------
+# mypy — strict on the shipped package. CI runs `mypy app`; pre-commit only sees
+# staged files, so run the full command before declaring work done.
+# ---------------------------------------------------------------------------
+[tool.mypy]
+python_version = "3.12"
+plugins = ["pydantic.mypy"]
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+disallow_untyped_defs = true
+no_implicit_optional = true
+ignore_missing_imports = true
+exclude = ["^alembic/versions/", "^\\.codex/", "^\\.venv/"]
+
+# ---------------------------------------------------------------------------
+# import-linter — structural contracts. Every contract here traces to a named
+# failure mode (docs/guides/programmatic-code-discipline.md §3). A contract
+# written before the package holds code starts green and never regresses:
+# that is the cheapest architectural guarantee available, so take it now.
+# ---------------------------------------------------------------------------
+[tool.importlinter]
+root_package = "app"
+
+# Contract 1 — layering. HTTP edge -> services -> repositories -> models.
+# Routes must not reach past services; services must not reach into the HTTP layer.
+[[tool.importlinter.contracts]]
+name = "Layers: api -> services -> repositories -> models"
+type = "layers"
+layers = [
+    "app.api | app.web | app.cli",
+    "app.services",
+    "app.repositories",
+    "app.models",
+]
+
+# Contract 2 — the domain vocabulary describes the domain; it must not know how
+# the domain is persisted or served. ORM-free by construction.
+[[tool.importlinter.contracts]]
+name = "app.domain must not import persistence, services, or the edge"
+type = "forbidden"
+source_modules = ["app.domain"]
+forbidden_modules = ["app.models", "app.repositories", "app.services", "app.api", "app.web", "app.cli"]
+
+# Contract 3 — routers go through services, never straight to a repository.
+# Whether a query is scoped/authorized must be decidable by reading the service,
+# not by auditing every router.
+[[tool.importlinter.contracts]]
+name = "app.api and app.web must not import repositories directly"
+type = "forbidden"
+source_modules = ["app.api", "app.web"]
+forbidden_modules = ["app.repositories"]
+
+# Contract 4 — nothing depends on the runtime-job entrypoints.
+[[tool.importlinter.contracts]]
+name = "Nothing imports app.cli"
+type = "forbidden"
+source_modules = ["app.api", "app.web", "app.services", "app.repositories", "app.models", "app.domain", "app.ai"]
+forbidden_modules = ["app.cli"]
+
+# Contract 5 — the observability plane holds no business logic and imports none.
+[[tool.importlinter.contracts]]
+name = "app.observability is dependency-free"
+type = "forbidden"
+source_modules = ["app.observability"]
+forbidden_modules = ["app.api", "app.web", "app.services", "app.repositories", "app.models", "app.domain", "app.ai", "app.cli"]
+
+# ---------------------------------------------------------------------------
+# pytest / coverage
+# ---------------------------------------------------------------------------
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "session"
+asyncio_default_test_loop_scope = "session"
+addopts = "-ra"
+markers = [
+    "committed_db: use independent database connections and truncate isolation (concurrency/durability tests)",
+    "e2e: browser-driven tests against a running server (opt-in)",
+]
+
+[tool.coverage.run]
+source = ["app"]
+branch = true
+# Async route handlers run under greenlets; without these modes coverage never
+# traces the handler bodies and the patch-coverage gate under-reports.
+concurrency = ["thread", "greenlet"]
+omit = ["app/__init__.py", "app/*/__init__.py"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]
+show_missing = true
+precision = 1

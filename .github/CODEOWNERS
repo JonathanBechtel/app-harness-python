@@ -1,0 +1,7 @@
+# Replace with the owning team. Harness files need a second pair of eyes because
+# they change what every future PR is allowed to do.
+* @YOUR-ORG/app-owners
+/.github/ @YOUR-ORG/platform
+/scripts/check_*.py @YOUR-ORG/platform
+/.pre-commit-config.yaml @YOUR-ORG/platform
+/CLAUDE.md @YOUR-ORG/platform

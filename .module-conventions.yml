@@ -1,0 +1,16 @@
+# Directory-scoped module placement and naming conventions, enforced by
+# scripts/check_module_conventions.py. Enrollment is OPT-IN per directory:
+# refactor a directory until it is coherent, enroll it here, and drift there is
+# prevented from then on (docs/guides/module-conventions.md).
+#
+# rules: any of helpers, models, services, transformers, repositories.
+#   A file under <path>/<family>/ must end with that family's suffix
+#   (e.g. services/foo_service.py), and a file at <path>/ whose shape looks like
+#   that family must live under the family directory.
+enforced_directories:
+  - path: app/repositories
+    rules:
+      - repositories
+  - path: app/services
+    rules:
+      - services

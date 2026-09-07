@@ -1,0 +1,3 @@
+# Codex reads AGENTS.md, which points at CLAUDE.md (the single source of instructions).
+[features]
+multi_agent = true

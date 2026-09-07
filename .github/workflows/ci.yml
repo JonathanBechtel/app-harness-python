@@ -1,0 +1,139 @@
+name: CI
+
+# Every guard here is mirrored in .pre-commit-config.yaml and the Makefile.
+# Pre-commit is bypassable; this is the enforcing copy.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  # CI runs against an ephemeral service container, so app and test DB may match.
+  DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app_test
+  TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/app_test
+  PYTEST_ALLOW_DB: "1"
+  PYTEST_ALLOW_TEST_DB_EQUALS_DATABASE_URL: "1"
+  PYTEST_REQUIRE_DB: "1"
+  APP_ENV: stage
+  SECRET_KEY: ci-only-not-a-secret
+
+jobs:
+  changes:
+    # Docs-only PRs skip the heavy jobs. Allowlist, not denylist: a new file
+    # defaults to running everything. Gated at JOB level so skipped jobs still
+    # satisfy required checks.
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - id: filter
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" != "pull_request" ]; then echo "code=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+          changed="$(git diff --name-only "${{ github.event.pull_request.base.sha }}...${{ github.sha }}")"
+          non_docs="$(printf '%s\n' "$changed" | grep -vE '^(docs/|[^/]+\.md$)' || true)"
+          if [ -n "$changed" ] && [ -z "$non_docs" ]; then echo "code=false" >> "$GITHUB_OUTPUT"; else echo "code=true" >> "$GITHUB_OUTPUT"; fi
+
+  checks:
+    # Whole-repo static analysis and the guard scripts, run once.
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: app_test }
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }  # diff-scoped guards compare against the PR base
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: pyproject.toml }
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: Resolve diff base
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"; else echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"; fi
+      - name: Format check
+        run: ruff format --check .
+      - name: Whole-tree checks (lint, mypy, import contracts, ratchets, guards, docs)
+        run: python tasks.py checks
+      - name: File-size ratchet (enforced against base)
+        run: python scripts/check_file_size_ratchet.py --against ${{ steps.base.outputs.ref }} --enforce
+      - name: Migration safety
+        run: python scripts/check_migration_safety.py --against ${{ steps.base.outputs.ref }}
+      - name: Duplicate-code gate
+        run: python scripts/check_duplicate_code.py --against ${{ steps.base.outputs.ref }}
+      - name: Test docstrings
+        run: python scripts/check_test_docstrings.py --against ${{ steps.base.outputs.ref }}
+      - name: Test float comparisons
+        run: python scripts/check_test_float_comparisons.py --against ${{ steps.base.outputs.ref }}
+      - name: Migration round-trip (upgrade -> downgrade -> assert empty -> upgrade)
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          python scripts/check_migration_teardown_residue.py
+          alembic upgrade head
+      - name: "Guard meta-tests (no coverage: whole-tree scans under settrace are 5x slower)"
+        run: pytest -q --no-cov tests/unit -k "check_ or guard_wiring or repo_is_clean"
+
+  tests:
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env: { POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres, POSTGRES_DB: app_test }
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 10
+        ports: ["5432:5432"]
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }  # diff-cover compares against the base
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12", cache: pip, cache-dependency-path: pyproject.toml }
+      - name: Install
+        run: pip install -e '.[dev]'
+      - name: Migrate
+        run: alembic upgrade head
+      - name: Unit + integration tests with coverage
+        run: pytest -q tests/unit tests/integration --cov=app --cov-report=xml --cov-report=term
+      - name: Patch coverage gate (>= 80% of changed app/ lines)
+        if: github.event_name == 'pull_request'
+        run: diff-cover coverage.xml --compare-branch=origin/${{ github.base_ref }} --fail-under=80
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with: { name: coverage-xml, path: coverage.xml, retention-days: 7 }
+
+  image:
+    # Prove the deployable artifact builds on every PR; publishing happens in build-image.yml.
+    needs: changes
+    if: ${{ !cancelled() && needs.changes.outputs.code != 'false' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          build-args: GIT_SHA=${{ github.sha }}
+          tags: app-harness:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

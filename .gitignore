@@ -1,0 +1,42 @@
+# Environments and secrets — never commit. `.env*` with an explicit allowlist so a
+# new variant (.env.qa.local, .env.bak) is ignored by default.
+.env*
+!.env.example
+.envrc
+.claude/settings.local.json
+.claude/worktrees/
+.codex/worktrees/
+.codex/environments/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+build/
+dist/
+.venv/
+venv/
+
+# Tooling caches
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.import_linter_cache/
+.grimp_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# Test and eval artifacts
+tests/e2e/screenshots/
+evals/results/
+.playwright-mcp/
+
+# Generated for Databricks Apps deploys (see deploy/databricks-apps)
+requirements.txt
+
+# OS / editor
+.DS_Store
+.idea/
+*.log

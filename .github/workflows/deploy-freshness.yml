@@ -1,0 +1,30 @@
+name: Deploy freshness
+
+# Scheduled OBSERVATION, not a gate: a red run means "someone should look".
+# Fails if the deployment at DEPLOY_URL reports a release_sha more than
+# max_age_hours behind main, or if /health/db is unhealthy.
+
+on:
+  schedule:
+    - cron: "0 13 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      max_age_hours:
+        default: "72"
+
+permissions:
+  contents: read
+
+jobs:
+  freshness:
+    if: ${{ vars.DEPLOY_URL != '' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - name: Release drift
+        run: python scripts/check_deploy_freshness.py --url "${{ vars.DEPLOY_URL }}" --against origin/main --max-age-hours "${{ inputs.max_age_hours || '72' }}"
+      - name: Database readiness
+        run: curl -fsS "${{ vars.DEPLOY_URL }}/health/db"
