@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
+from app.config import settings
 from app.main import app
 from app.observability.middleware import REQUEST_ID_HEADER
 
@@ -23,7 +24,7 @@ async def test_health_reports_env_and_release(client: AsyncClient) -> None:
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["env"] == "dev"
+    assert body["env"] == settings.env  # CI runs as stage, local as dev
     assert body["release_sha"] == "testsha0000"
 
 

@@ -68,7 +68,10 @@ jobs:
       - name: Resolve diff base
         id: base
         run: |
-          if [ "${{ github.event_name }}" = "pull_request" ]; then echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"; else echo "ref=${{ github.event.before }}" >> "$GITHUB_OUTPUT"; fi
+          # PRs diff against the base branch. Pushes diff against the previous commit
+          # (github.event.before is the null sha on a first push or after a force-push;
+          # the guards fall back to the empty tree when a ref does not exist).
+          if [ "${{ github.event_name }}" = "pull_request" ]; then echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"; else echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"; fi
       - name: Format check
         run: ruff format --check .
       - name: Whole-tree checks (lint, mypy, import contracts, ratchets, guards, docs)

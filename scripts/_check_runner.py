@@ -91,8 +91,11 @@ def merge_base(ref: str) -> str:
     diff-scoped guard would crash. Diffing against the empty tree instead judges the
     whole tree as newly added, which is exactly what a first commit is.
     """
+    # cat-file -e, not rev-parse --verify: the latter accepts any well-formed 40-hex
+    # string (e.g. GitHub's all-zero `before` sha on a first push) without checking
+    # that the object exists.
     probe = subprocess.run(
-        ["git", "rev-parse", "--verify", "--quiet", ref],
+        ["git", "cat-file", "-e", f"{ref}^{{commit}}"],
         capture_output=True,
         text=True,
         check=False,
