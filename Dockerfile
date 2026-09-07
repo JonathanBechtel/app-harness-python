@@ -4,7 +4,7 @@
 #
 # Build: make docker.build      (passes --build-arg GIT_SHA=$(git rev-parse HEAD))
 
-FROM python:3.12-slim AS builder
+FROM python:3.14-slim AS builder
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PIP_NO_CACHE_DIR=1
 WORKDIR /build
 RUN python -m venv /opt/venv
@@ -12,7 +12,7 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 RUN /opt/venv/bin/pip install --upgrade pip && /opt/venv/bin/pip install .
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PATH="/opt/venv/bin:$PATH"
 # Non-root: Azure Container Apps and most platforms allow it; nothing here needs root.
 RUN useradd --create-home --uid 10001 appuser
