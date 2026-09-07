@@ -61,7 +61,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }  # diff-scoped guards compare against the PR base
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12", cache: pip, cache-dependency-path: pyproject.toml }
       - name: Install
         run: pip install -e '.[dev]'
@@ -109,7 +109,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }  # diff-cover compares against the base
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12", cache: pip, cache-dependency-path: pyproject.toml }
       - name: Install
         run: pip install -e '.[dev]'

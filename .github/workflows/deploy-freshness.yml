@@ -22,7 +22,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with: { python-version: "3.12" }
       - name: Release drift
         run: python scripts/check_deploy_freshness.py --url "${{ vars.DEPLOY_URL }}" --against origin/main --max-age-hours "${{ inputs.max_age_hours || '72' }}"
