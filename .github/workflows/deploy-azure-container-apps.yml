@@ -32,13 +32,13 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Resolve image
         id: image
         run: |
           tag="${{ inputs.image_tag }}"; [ -n "$tag" ] || tag="sha-${GITHUB_SHA::12}"
           echo "ref=${{ vars.ACR_NAME }}.azurecr.io/${{ vars.ACR_REPOSITORY || github.event.repository.name }}:$tag" >> "$GITHUB_OUTPUT"
-      - uses: azure/login@v2
+      - uses: azure/login@v3
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
