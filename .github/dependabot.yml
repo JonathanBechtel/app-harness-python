@@ -8,6 +8,14 @@ updates:
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    groups:
+      actions: { patterns: ["*"] }
   - package-ecosystem: docker
     directory: /
     schedule: { interval: weekly }
+    # The Python version is pinned in lockstep across the Dockerfile, CI, ruff and
+    # mypy (3.12). Bumping it is a deliberate change made in all four places at
+    # once, not a Dependabot PR against one of them.
+    ignore:
+      - dependency-name: python
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
