@@ -1,0 +1,60 @@
+# Files a project OWNS once created from the template. The harness sync
+# (.github/workflows/template-sync.yml) never touches them; everything else is
+# harness and is kept current with the template through a weekly PR.
+# gitignore syntax, paths only (no negations). Add a file here when this project
+# deliberately diverges from the template; prefer a `# discipline:` waiver first.
+
+# Identity and description of THIS app
+README.md
+CLAUDE.md
+LICENSE
+pyproject.toml
+.env.example
+.github/CODEOWNERS
+docs/architecture/overview.md
+docs/decisions/
+docs/plans/
+docs/notes/
+docs/product/
+docs/research/
+docs/runbooks/
+
+# Product code and its conventions. Infrastructure under app/ that projects
+# rarely edit (observability, network guard, cli runner) is deliberately NOT
+# listed so fixes there still arrive.
+app/CLAUDE.md
+app/*/CLAUDE.md
+app/main.py
+app/config.py
+app/logging_config.py
+app/api/
+app/web/
+app/services/
+app/repositories/
+app/models/
+app/schemas/
+app/domain/
+app/ai/registry.py
+app/ai/prompts/
+app/cli/healthcheck.py
+app/utils/db.py
+app/templates/
+app/static/
+app/data/
+alembic/versions/
+
+# Project state the guards ratchet against
+complexity-baseline.json
+.module-conventions.yml
+tests/integration/perf/budgets.py
+tests/unit/test_route_table.py
+tests/unit/test_health.py
+tests/e2e/
+
+# Evals are product-specific
+evals/datasets/
+evals/suites/
+
+# Deploy config that names this app's resources
+deploy/databricks-apps/app.yaml
+docker-compose.yml

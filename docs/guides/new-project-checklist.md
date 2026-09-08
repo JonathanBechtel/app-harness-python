@@ -8,5 +8,6 @@ Do these in the first PR of a project created from the template. The `/update-do
 4. **Describe the app.** Replace every `<!-- template:placeholder -->` section in `CLAUDE.md` and `docs/architecture/overview.md` with the truth. `make lint.docs` enforces this once real code exists.
 5. **Decide and record.** Add ADRs for anything you change from the template defaults (database, DI style, web layer removal, LLM provider).
 6. **Pick what you use.** API-only: leave `app/web` alone or remove `web_routes` from `main.py` and update `test_route_table.py`. No LLM features: `app/ai` stays; it is inert. Both are the same stack either way.
-7. **Team hygiene.** Enable branch protection requiring the `checks`, `tests`, and `image` jobs; require one review; set up Dependabot auto-merge policy if desired.
-8. **First guard.** The first time a review catches something twice, run `/add-guard`.
+7. **Turn on harness updates.** Settings → Actions → General → allow Actions to create pull requests; optionally add a `TEMPLATE_SYNC_TOKEN` secret so CI runs on the weekly sync PR. Procedure and what syncs: `docs/guides/receiving-harness-updates.md`.
+8. **Team hygiene.** Enable branch protection requiring the `checks`, `tests`, and `image` jobs; require one review; set up Dependabot auto-merge policy if desired.
+9. **First guard.** The first time a review catches something twice, run `/add-guard`.

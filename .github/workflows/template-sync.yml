@@ -1,0 +1,48 @@
+name: Harness sync
+
+# Keeps a project created from the template current with the template itself.
+# Weekly (and on demand) this fetches the template's main, merges it, and opens a
+# PR; the project's own CI gate decides whether it lands. Files a project owns
+# (product code, its rewritten CLAUDE.md, migrations, budgets ...) are listed in
+# .templatesyncignore and never touched. docs/guides/receiving-harness-updates.md
+# explains the one-time setup and how to review a sync PR. Inert in the template
+# repository itself.
+
+on:
+  schedule:
+    - cron: "0 7 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  sync:
+    if: ${{ github.repository != 'JonathanBechtel/app-harness-python' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: AndreasAugustin/actions-template-sync@v2
+        with:
+          source_repo_path: JonathanBechtel/app-harness-python
+          upstream_branch: main
+          # A PAT or GitHub App token lets CI run on the PR the action opens; the
+          # default token cannot trigger workflows on its own pull requests.
+          target_gh_token: ${{ secrets.TEMPLATE_SYNC_TOKEN || github.token }}
+          pr_title: "chore: sync harness from app-harness-python"
+          pr_branch_name_prefix: chore/harness-sync
+          pr_labels: harness-sync
+          pr_commit_msg: "chore(harness): merge template changes"
+          pr_body: |
+            Automated merge of the latest [app-harness-python](https://github.com/JonathanBechtel/app-harness-python) into this project.
+
+            Review as you would any PR: the project's full CI gate must pass. Conflicts appear where this
+            project edited a harness file by hand; resolve them by keeping the template's version unless the
+            local change was deliberate (then keep both and add a `# discipline:` reason where a guard asks).
+            Project-owned files listed in `.templatesyncignore` are never touched.
+            Procedure: `docs/guides/receiving-harness-updates.md`.
+          is_pr_cleanup: true
+          git_user_name: harness-sync[bot]
+          git_user_email: harness-sync@users.noreply.github.com

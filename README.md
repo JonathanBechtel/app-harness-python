@@ -7,6 +7,7 @@ A starting point for internal applications: a FastAPI service skeleton with the 
 - **One deploy artifact** (the container image) with adapters for Azure Container Apps and Databricks Apps, health probes, release identity, and a drift monitor.
 - **Agent documentation** that tells any AI what this repo is and how to work in it, plus mechanical pressure to keep those docs describing the real app as it grows.
 - **LLM plumbing** without product logic: role→model routing, a mockable client seam, versioned prompts, and an eval harness.
+- **Self-updating.** Projects created from the template receive harness changes as a weekly pull request (`.github/workflows/template-sync.yml`); their own CI gate decides whether it lands. See `docs/guides/receiving-harness-updates.md`.
 
 This is the Python sibling of [`app-harness-typescript`](https://github.com/JonathanBechtel/app-harness-typescript) (Fastify). The two keep functional and structural parity: the same guards, the same layout, the same deploy contract, each in its own ecosystem's idioms.
 

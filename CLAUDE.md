@@ -95,6 +95,10 @@ Idea → `/create-product-pitch` (optional for mechanical work) → tech spec in
 
 The container image is the artifact; targets are Azure Container Apps (image) and Databricks Apps (source, same commit). `/health` reports `release_sha`; `make deploy.freshness DEPLOY_URL=...` measures drift from `main`. Details and one-time setup: `deploy/README.md`. Secrets live in the platform's secret store, never in the repo or the image.
 
+## Harness updates
+
+This project receives template changes as a weekly `harness-sync` pull request (`.github/workflows/template-sync.yml`). Review it like a dependency bump and run the Definition of Done; `.templatesyncignore` lists the files this project owns. Procedure: `docs/guides/receiving-harness-updates.md`.
+
 ## Where the rules come from
 
 Every guard traces to a named failure and ships with an escape hatch and a baseline: `docs/guides/programmatic-code-discipline.md`. Architectural principles: `docs/architecture/north-star.md`. Decisions: `docs/decisions/`.
