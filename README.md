@@ -1,4 +1,4 @@
-# app-harness
+# app-harness-python
 
 A starting point for internal applications: a FastAPI service skeleton with the engineering guardrails already wired in. **It contains no product logic.** It contains everything that lets a new project start safely on day one and stay that way:
 
@@ -7,6 +7,8 @@ A starting point for internal applications: a FastAPI service skeleton with the 
 - **One deploy artifact** (the container image) with adapters for Azure Container Apps and Databricks Apps, health probes, release identity, and a drift monitor.
 - **Agent documentation** that tells any AI what this repo is and how to work in it, plus mechanical pressure to keep those docs describing the real app as it grows.
 - **LLM plumbing** without product logic: role→model routing, a mockable client seam, versioned prompts, and an eval harness.
+
+This is the Python sibling of [`app-harness-typescript`](https://github.com/JonathanBechtel/app-harness-typescript) (Fastify). The two keep functional and structural parity: the same guards, the same layout, the same deploy contract, each in its own ecosystem's idioms.
 
 ## Start a project
 
